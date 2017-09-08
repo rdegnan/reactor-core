@@ -526,9 +526,7 @@ In some cases however, you might need to change these default instances with som
 else in a cross-cutting way, without having to make sure every single operator you call
 has your specific `Scheduler` as a parameter. This could be for instrumentation purpose
 for example: measuring the time every single scheduled task takes by wrapping the real
-schedulers.
-
-In other words, you might want to change the defaults.
+schedulers. In other words, you might want to *change the default `Schedulers`*.
 
 This is possible through the `Schedulers.Factory` class. By default a `Factory` creates
 all the standard `Scheduler` through similarly named methods. Each of these can be
