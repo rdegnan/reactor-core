@@ -561,6 +561,7 @@ Reactor has another category of configurable callbacks that are invoked by React
 operators in various situations. They are all set in the `Hooks` class, and fall into
 three categories:
 
+[[hooks-dropping]]
 === Dropping Hooks
 These hooks are invoked when the source of an operator doesn't comply to the Reactive
 Streams specification. These kind of errors are outside of the normal execution path (ie
@@ -579,6 +580,7 @@ the reactive chain).
 Setting the hooks twice in a row is additive: every consumer you provide is invoked.
 The hooks can be fully reset to default using `Hooks.resetOn*Dropped()` methods.
 
+[[hooks-internal]]
 === Internal Error Hook
 There is one such hook, `onOperatorError`, which is invoked by operators when an unexpected
 `Exception` is thrown during the execution of their `onNext`, `onError` and `onComplete`
@@ -602,6 +604,7 @@ As a consequence, the default hook behavior can be both fully reset (using
 `Hooks.resetOnOperatorError()`) or partially reset for a specific `key` only
 (using `Hooks.resetOnOperatorError(String)`).
 
+[[hooks-assembly]]
 === Assembly Hooks
 These hooks tie in the lifecycle of operators. They are invoked when a chain of operators
 is assembled (ie. instantiated). `onEachOperator` allow you to dynamically change each
