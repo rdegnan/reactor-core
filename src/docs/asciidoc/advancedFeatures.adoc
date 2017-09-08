@@ -511,8 +511,6 @@ You can also access individual rails or "groups" as a `Flux<GroupedFlux<T>>` via
 the `groups()` method and apply additional operators to them via the
 `composeGroup()` method.
 
-== Backpressure and the associated rules
-
 [[scheduler-factory]]
 == Replacing default `Schedulers`
 As we've seen in the <<schedulers>> section, Reactor Core comes with several `Scheduler`
