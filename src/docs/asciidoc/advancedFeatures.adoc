@@ -700,5 +700,88 @@ completely different instance, although it is really not recommended (this might
 libraries that depend on the `Context`).
 
 === Using the Context
-//TODO
-TODO
+Populating the `Context` is one aspect, but retrieving that data from it is of course just
+as important. Most of the time, the responsibility of putting information into the
+`Context` will be on the end user's side, while exploiting that information will be on the
+library's side, as the library is usually upstream of the client code.
+
+The tool for reading data from the context is the static `Mono.subscriberContext()` method.
+
+Let's take an example of a library reading information from the `Context`: a reactive
+HTTP client that takes a `Mono<String>` as the source of data for a `PUT`, but also looks
+for a particular Context key to add a correlation ID to the request's headers.
+
+From the user perspective, it is called like this:
+
+[source,java]
+----
+doPut("www.example.com", Mono.just("Walter"))
+----
+
+In order to propagate a correlation ID, it would be called like that:
+
+[source,java]
+----
+doPut("www.example.com", Mono.just("Walter"))
+	.subscriberContext(Context.of(HTTP_CORRELATION_ID, "2-j3r9afaf92j-afkaf"))
+----
+
+As you can see in the snippets above, the user code uses `subscriberContext` to populate
+a `Context` with an `HTTP_CORRELATION_ID` key-value pair. The upstream of the operator is
+a `Mono<Tuple2<Integer, String>>` (a simplistic representation of an HTTP response)
+returned by the HTTP client library. So it is effectively passing information from the
+user code to the library code.
+
+Here is the mock code from the library's perspective that reads the context and "augments
+the request" if it can find the correlation ID:
+
+[source,java]
+----
+static final String HTTP_CORRELATION_ID = "reactive.http.library.correlationId";
+
+Mono<Tuple2<Integer, String>> doPut(String url, Mono<String> data) {
+	Mono<Tuple2<String, Optional<Object>>> dataAndContext =
+			data.zipWith(Mono.subscriberContext() // <1>
+			                 .map(c -> c.getOrEmpty(HTTP_CORRELATION_ID))); // <2>
+
+	return dataAndContext
+			.<String>handle((dac, sink) -> {
+				if (dac.getT2().isPresent()) { // <3>
+					sink.next("PUT <" + dac.getT1() + "> sent to " + url + " with header X-Correlation-ID = " + dac.getT2().get());
+				}
+				else {
+					sink.next("PUT <" + dac.getT1() + "> sent to " + url);
+				}
+				sink.complete();
+			})
+			.map(msg -> Tuples.of(200, msg));
+}
+----
+<1> Materialize the `Context` through `Mono.subscriberContext()`
+<2> Extract value for a the correlation id key, as an `Optional`
+<3> If the key was present in the context, use the correlation id as a header
+
+In the library snippet, you can see how it zips the data `Mono` with `Mono.subscriberContext()`.
+This gives the library a `Tuple2<String, Context>` and that context will indeed contain
+the `HTTP_CORRELATION_ID` entry from downstream (as it is on the direct path to the
+subscriber).
+
+The library code then uses `map` to extract an `Optional<String>` for that key, and if the
+entry is present it will use the passed correlation id as a `X-Correlation-ID` header.
+That last part is simulated by the `handle` above.
+
+The whole test that validates the library code used the correlation ID can be written as:
+[source,java]
+----
+@Test
+public void contextForLibraryReactivePut() {
+	Mono<String> put = doPut("www.example.com", Mono.just("Walter"))
+			.subscriberContext(Context.of(HTTP_CORRELATION_ID, "2-j3r9afaf92j-afkaf"))
+			.filter(t -> t.getT1() < 300)
+			.map(Tuple2::getT2);
+
+	StepVerifier.create(put)
+	            .expectNext("PUT <Walter> sent to www.example.com with header X-Correlation-ID = 2-j3r9afaf92j-afkaf")
+	            .verifyComplete();
+}
+----
